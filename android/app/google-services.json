@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "844348427220",
+    "project_id": "famliyhealthtracker",
+    "storage_bucket": "famliyhealthtracker.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:844348427220:android:8d749c7e057ed6556b6441",
+        "android_client_info": {
+          "package_name": "com.ikappsstudio.familyhealthtracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdPSKIgrnXRBtsJP_4pRhCxLBAJ3mVLv0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

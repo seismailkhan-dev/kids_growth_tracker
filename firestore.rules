@@ -1,0 +1,61 @@
+// firestore.rules
+// Firestore Security Rules for Family Health Tracker
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: Check if user owns the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Users collection - only the user can read/write their own doc
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // Children collection - only the parent can CRUD their children
+    match /children/{childId} {
+      allow read, write: if isAuthenticated()
+        && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated()
+        && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Growth records - parent access only
+    match /growth_records/{recordId} {
+      allow read, write: if isAuthenticated()
+        && _isChildOwner(resource.data.childId);
+      allow create: if isAuthenticated()
+        && _isChildOwner(request.resource.data.childId);
+    }
+
+    // Sleep records - parent access only
+    match /sleep_records/{recordId} {
+      allow read, write: if isAuthenticated()
+        && _isChildOwner(resource.data.childId);
+      allow create: if isAuthenticated()
+        && _isChildOwner(request.resource.data.childId);
+    }
+
+    // Medical records - parent access only
+    match /medical_records/{recordId} {
+      allow read, write: if isAuthenticated()
+        && _isChildOwner(resource.data.childId);
+      allow create: if isAuthenticated()
+        && _isChildOwner(request.resource.data.childId);
+    }
+
+    // Helper function to check if authenticated user owns the child
+    function _isChildOwner(childId) {
+      return get(/databases/$(database)/documents/children/$(childId)).data.userId
+        == request.auth.uid;
+    }
+  }
+}

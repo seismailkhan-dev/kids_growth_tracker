@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyCA8SSYYrtGyEJnxcDJDZNk9dng1HjYpS0</string>
+	<key>GCM_SENDER_ID</key>
+	<string>844348427220</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.ikappsstudio.familyhealthtracker</string>
+	<key>PROJECT_ID</key>
+	<string>famliyhealthtracker</string>
+	<key>STORAGE_BUCKET</key>
+	<string>famliyhealthtracker.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:844348427220:ios:8dbf22ccaf8ce15c6b6441</string>
+</dict>
+</plist>
