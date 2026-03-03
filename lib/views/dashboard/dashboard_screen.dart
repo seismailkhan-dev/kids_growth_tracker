@@ -100,7 +100,7 @@ class _HomeTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Good Morning! ☀️', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-                Text('${controller.userData.value?.firstName??''}\'s Family', style: Theme.of(context).textTheme.headlineLarge),
+                Text('${controller.userData.value?.name??''}\'s Family', style: Theme.of(context).textTheme.headlineLarge),
               ],
             ),
           ),

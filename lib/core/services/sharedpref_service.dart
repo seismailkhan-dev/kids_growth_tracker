@@ -18,25 +18,10 @@ class SharedPrefService {
   }
 
 
-  static const String keyUserData = 'user_data';
   static const String keyLoggedIn = 'isLoggedIn';
-  static const String isLoggedInTime = 'isLoggedInTime';
+  static const String loggedInTime = 'loggedInTime';
   static const String isSkipOnboarding = 'isSkipOnboarding';
 
-
-
-  static Future<void> saveUserModel(UserModel user) async {
-    final jsonString = jsonEncode(user.toJson());
-    await _prefs.setString(keyUserData, jsonString);
-  }
-
-  static UserModel? getUserModel() {
-    final jsonString = _prefs.getString(keyUserData);
-    if (jsonString == null) return null;
-
-    final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
-    return UserModel.fromJson(jsonMap);
-  }
 
 
   // ================= LOGIN FLAG =================
@@ -54,13 +39,13 @@ class SharedPrefService {
 
 
   // ================= LOGIN Time =================
-  static Future<void> saveIsLoggedInTime(DateTime date) async {
-    await _prefs.setString(isLoggedInTime, DateTime.now().toIso8601String());
+  static Future<void> saveLoggedInTime() async {
+    await _prefs.setString(loggedInTime, DateTime.now().toIso8601String());
   }
 
 
-  static Future<DateTime?> getIsLoggedInTime() async {
-    final dateString = _prefs.getString(isLoggedInTime);
+  static Future<DateTime?> getLoggedInTime() async {
+    final dateString = _prefs.getString(loggedInTime);
     if (dateString == null) return null;
     return DateTime.parse(dateString);
   }

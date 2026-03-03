@@ -1,49 +1,62 @@
-import 'package:family_health_tracker/core/services/format_service.dart';
-
 class UserModel {
-   String? uid;
-   String? firstName;
-   String? lastName;
-   String? email;
-   String? phone;
-   bool? isPremiumUser;
-   DateTime? createdAt;
-   DateTime? updatedAt;
+  final String id;
+  final String name;
+  final String email;
+  final bool isPremiumUser;
+  final bool isSynced;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   UserModel({
-     this.uid,
-     this.firstName,
-     this.lastName,
-     this.email,
-     this.phone,
-     this.isPremiumUser,
-     this.createdAt,
-     this.updatedAt,
+    required this.id,
+    required this.name,
+    required this.email,
+    this.isPremiumUser = false,
+    this.isSynced = false,
+    required this.createdAt,
+    required this.updatedAt,
   });
+
+  /// ✅ ADD THIS
+  UserModel copyWith({
+    String? name,
+    String? email,
+    bool? isPremiumUser,
+    bool? isSynced,
+    DateTime? updatedAt,
+  }) {
+    return UserModel(
+      id: id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      isPremiumUser: isPremiumUser ?? this.isPremiumUser,
+      isSynced: isSynced ?? this.isSynced,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      uid: json['uid'],
-      firstName: json['firstName'],
-      lastName: json['lastName'],
+      id: json['id'],
+      name: json['name'],
       email: json['email'],
-      phone: json['phone'],
-      isPremiumUser: json['isPremiumUser']??false,
-      createdAt:json['createdAt'] == null? null : FormatService.parseDate(json['createdAt']),
-      updatedAt: json['createdAt'] == null? null : FormatService.parseDate(json['updatedAt']),
+      isPremiumUser: json['isPremiumUser'] ?? false,
+      isSynced: json['isSynced'] ?? false,
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'uid': uid,
-      'firstName': firstName,
-      'lastName': lastName,
+      'id': id,
+      'name': name,
       'email': email,
-      'phone': phone,
       'isPremiumUser': isPremiumUser,
-      'createdAt': createdAt?.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
+      'isSynced': isSynced,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 }

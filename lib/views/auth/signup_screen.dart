@@ -17,7 +17,7 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final authController = Get.put(AuthController());
+  final authController = Get.put(AuthController(),tag: 'signup');
 
   final _validation = GlobalKey<FormState>();
 
@@ -46,36 +46,16 @@ class _SignupScreenState extends State<SignupScreen> {
                     const SizedBox(height: 8),
                     Text('Join thousands of families on GrowthBuddy', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
                     const SizedBox(height: 32),
-                    Row(children: [
+                    CustomTextField(
+                        onValidator: ValidationService.validateFirstName,
+                        prefix: const Icon(Icons.person_outline_rounded),
+                        hint: 'Full Name', controller: authController.nameTextController),
 
-                      Expanded(
-                        child: CustomTextField(
-                            onValidator: ValidationService.validateFirstName,
-                            prefix: const Icon(Icons.person_outline_rounded),
-                            hint: 'First Name', controller: authController.firstNameController),
-                      ),
-                      const SizedBox(width: 12),
-
-                      Expanded(
-                        child: CustomTextField(
-                            onValidator: ValidationService.validateLastName,
-                            prefix: const Icon(Icons.person_outline_rounded),
-                            hint: 'Last Name', controller: authController.lastNameController),
-                      ),
-
-                    ]),
                     const SizedBox(height: 16),
                     CustomTextField(
                         onValidator: ValidationService.validateEmail,
                         prefix: const Icon(Icons.mail_outline_rounded),
                         hint: 'Email Address', controller: authController.emailController),
-
-                    const SizedBox(height: 16),
-                    CustomTextField(
-                      keyboardType: TextInputType.phone,
-                        onValidator: ValidationService.validatePhone,
-                        prefix: const Icon(Icons.phone_outlined),
-                        hint: 'Phone Number', controller: authController.phoneController),
 
                     const SizedBox(height: 16),
                     Obx((){

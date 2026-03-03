@@ -1,186 +1,157 @@
-import 'package:family_health_tracker/controllers/app_controller.dart';
-import 'package:family_health_tracker/views/dashboard/dashboard_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
-import '../../core/constants/firebaes_fields_names.dart';
-import '../core/services/firebase_collections_service.dart';
-import '../core/services/loading_service.dart';
-import '../core/services/sharedpref_service.dart';
-import '../core/widgets/custom_snack_bar.dart';
+import '../core/services/flutter_secure_storage_service.dart';
+import '../core/services/password_service.dart';
 import '../models/user.dart';
-
-enum UserRole { admin, driver }
+import '../core/services/drift_service.dart';
+import '../core/services/firebase_service.dart';
+import '../core/services/sharedpref_service.dart';
+import '../core/services/sync_service.dart';
+import '../core/widgets/custom_snack_bar.dart';
+import '../views/dashboard/dashboard_screen.dart';
+import 'app_controller.dart';
 
 class AuthController extends GetxController {
   static AuthController get to => Get.find();
 
   final emailController = TextEditingController();
-  final firstNameController = TextEditingController();
-  final lastNameController = TextEditingController();
+  final nameTextController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
-  final phoneController = TextEditingController();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  Rx<User?> firebaseUser = Rx<User?>(null);
-  Rx<UserRole> selectedUserRole = Rx<UserRole>(UserRole.admin);
-
+  final FirebaseService _firebase = FirebaseService();
+  final DriftService _drift = DriftService();
+  late final SyncService _sync;
 
   RxBool isLoading = false.obs;
   RxBool isObscureText = true.obs;
   RxBool agreeTerms = false.obs;
 
-  // @override
-  // void onInit() {
-  //   super.onInit();
-  //   firebaseUser.bindStream(_auth.authStateChanges());
-  // }
-
-  changeObscure(){
-    isObscureText.value = !isObscureText.value;
+  @override
+  void onInit() {
+    super.onInit();
+    _sync = SyncService(firebase: _firebase, drift: _drift);
   }
 
-  changeAgreeTerm(bool value){
-    agreeTerms.value = value;
-  }
-  /// ==================== DRIVER EMAIL CONVERTER ====================
+  changeObscure(){ isObscureText.value = !isObscureText.value; }
+  changeAgreeTerm(bool value){ agreeTerms.value = value; }
 
-
-  /// ==================== ADMIN SIGNUP ====================
+  // ================= SIGNUP =================
   Future<void> signupUser(BuildContext context) async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
-    final confirmPassword = confirmPasswordController.text.trim();
-
-    if (password != confirmPassword) {
-      customSnackBar("Error", "Confirm password did not matched.");
-      return;
-    }
-
-    if (!agreeTerms.value) {
-      customSnackBar("Error", "Please accept Terms of Services and Privacy Policy");
-      return;
-    }
-
 
     try {
       isLoading(true);
 
-      // LoadingService.show(message: "Creating account...");
+      final firebaseUser =
+      await _firebase.signUp(email: email, password: password);
+      if (firebaseUser == null) throw Exception("Signup failed");
 
-      // Firebase Auth Signup
-      UserCredential cred = await _auth.createUserWithEmailAndPassword(
+      final user = UserModel(
+        id: firebaseUser.uid,
+        name: nameTextController.text.trim(),
         email: email,
-        password: password,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        isSynced: true,
       );
 
+      await _drift.saveUser(user);
+      await _firebase.saveUser(user);
 
-      // Save admin user info
-      await FirebaseCollectionService.users.doc(cred.user!.uid).set({
-        FirebaseFieldsNames.uid: cred.user!.uid,
-        FirebaseFieldsNames.firstName: firstNameController.text.trim(),
-        FirebaseFieldsNames.lastName: lastNameController.text.trim(),
-        FirebaseFieldsNames.phone: phoneController.text.trim(),
-        FirebaseFieldsNames.email: email,
-        FirebaseFieldsNames.createdAt: FieldValue.serverTimestamp(),
-        FirebaseFieldsNames.updatedAt: FieldValue.serverTimestamp(),
-        FirebaseFieldsNames.isPremiumUser: false,
-      });
-
-      navigateToDashboard(userId: cred.user!.uid, userData: UserModel(
-          uid: cred.user!.uid,
-          firstName: firstNameController.text.trim(),
-          lastName: lastNameController.text.trim(),
-          email: emailController.text.trim(),
-          phone: phoneController.text.trim(),
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          isPremiumUser: false
-      ));
-
-
-      customSnackBar("Success", "Account created successfully",isSuccess: true);
-
-    } on FirebaseAuthException catch (e) {
-      customSnackBar(
-        "Signup Error",
-        e.message ?? "Authentication failed",
+      // 🔐 Store password securely
+      await SecureStorageService.savePasswordHash(
+        user.id,
+        PasswordService.hash(password),
       );
-    }  catch (e) {
-      print("Error:: $e");
-      customSnackBar("Signup Error",   e.toString().replaceFirst('Exception: ', ''));
-    }finally{
+
+      navigateToDashboard(userData: user);
+
+    }  on FirebaseAuthException catch (e) {
+      customSnackBar( "Signup Error", e.message ?? "Authentication failed", );
+    } catch (e) {
+      customSnackBar("Signup Error", e.toString());
+    } finally {
       isLoading(false);
     }
   }
 
-  /// ==================== ADMIN LOGIN ====================
+  // ================= LOGIN =================
   Future<void> loginUser() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
 
     try {
-
       isLoading(true);
 
-      String email = emailController.text.trim();
+      // 1️⃣ Try offline login
+      final localUser = await _drift.getUserByEmail(email);
+      print('localUser ${localUser}');
+      print('localUser ${localUser?.email}');
 
 
-      UserCredential cred = await _auth.signInWithEmailAndPassword(email: email, password: passwordController.text.trim()) .timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception("Firebase login timed out");
-        },
-      );;
+      if (localUser != null) {
+        final storedHash =
+        await SecureStorageService.getPasswordHash(localUser.id);
 
-      print('cred: ${cred}');
-      print('cred.user!.uid : ${cred.user!.uid}');
-     DocumentSnapshot userData = await FirebaseCollectionService.users.doc(cred.user!.uid).get();
+        if (storedHash != null &&
+            PasswordService.verify(password, storedHash)) {
+          navigateToDashboard(userData: localUser);
+          _sync.syncPendingData(localUser.id);
+          return;
+        }
+      }
 
-    if(userData.data()==null){
-      customSnackBar(
-        "Login Error",
-         "Authentication failed",
+      // 2️⃣ Require internet if not found locally
+      if (!await _sync.isOnline) {
+        throw Exception("No internet. Login online once.");
+      }
+
+      // 3️⃣ Firebase login
+      final firebaseUser =
+      await _firebase.signIn(email: email, password: password);
+      if (firebaseUser == null) throw Exception("Login failed");
+
+      final remote =
+      await _firebase.fetchUser(firebaseUser.uid);
+      if (remote == null) throw Exception("Profile missing");
+
+      final user = UserModel(
+        id: firebaseUser.uid,
+        name: remote['name'] ?? '',
+        email: email,
+        isPremiumUser: remote['isPremiumUser'] ?? false,
+        createdAt: DateTime.parse(remote['createdAt']),
+        updatedAt: DateTime.now(),
+        isSynced: true,
       );
-    }else{
-      UserModel userModel = UserModel.fromJson(userData.data() as Map<String, dynamic>);
 
-      navigateToDashboard(userId: cred.user!.uid, userData: userModel);
+      await _drift.saveUser(user);
+      await SecureStorageService.savePasswordHash(
+        user.id,
+        PasswordService.hash(password),
+      );
 
-      customSnackBar("Success", "Login Successful",isSuccess: true);
-    }
+      _sync.syncPendingData(user.id);
+      navigateToDashboard(userData: user);
 
     } on FirebaseAuthException catch (e) {
-
-      customSnackBar(
-        "Login Error",
-        e.message ?? "Authentication failed",
-      );
-    }catch (e) {
-      debugPrint("Login Error: $e");
-      customSnackBar("Login Error", e.toString().replaceFirst('Exception: ', ''));
-    }finally{
+      customSnackBar( "Login Error", e.message ?? "Authentication failed", );
+    } catch (e) {
+      customSnackBar("Login Error", e.toString());
+    } finally {
       isLoading(false);
     }
   }
 
-
-
-  navigateToDashboard({required String userId,required UserModel userData}) async {
+  void navigateToDashboard({required UserModel userData}) async {
     await SharedPrefService.saveIsLoggedIn(true);
-    await SharedPrefService.saveIsLoggedInTime(DateTime.now());
-    await SharedPrefService.saveUserModel(userData);
-
     final controller = Get.find<AppController>();
-
     controller.userData.value = userData;
-    controller.isPremium.value = userData.isPremiumUser??false;
-
-    Get.offAll(DashboardScreen());
+    controller.isPremium.value = userData.isPremiumUser;
+    Get.offAll(() => DashboardScreen());
   }
-
-
 }

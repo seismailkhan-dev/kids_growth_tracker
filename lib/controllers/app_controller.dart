@@ -4,18 +4,34 @@ import 'package:family_health_tracker/views/auth/login_screen.dart';
 import 'package:family_health_tracker/views/dashboard/dashboard_screen.dart';
 import 'package:family_health_tracker/views/onboarding/onboarding_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../core/services/drift_service.dart';
+import '../core/services/firebase_service.dart';
 import '../core/services/sharedpref_service.dart';
+import '../core/services/sync_service.dart';
 import '../models/child_model.dart';
 
 class AppController extends GetxController {
+
+  final FirebaseService _firebase = FirebaseService();
+  final DriftService _drift = DriftService();
+  late final SyncService _sync;
+
+
   // Theme
   final isDarkMode = false.obs;
   final isPremium = false.obs;
 
   Rxn<UserModel> userData = Rxn<UserModel>();
+
+
+  @override
+  void onInit() {
+    super.onInit();
+    _sync = SyncService(firebase: _firebase, drift: _drift);
+  }
+
 
   void toggleTheme() {
     isDarkMode.value = !isDarkMode.value;
@@ -25,21 +41,66 @@ class AppController extends GetxController {
 
 
 
-  checkUserSession(){
+  Future<void> checkUserSession() async {
     final bool isLoggedIn = SharedPrefService.getIsLoggedIn();
-    final bool isSkipOnboarding = SharedPrefService.getIsLoggedIn();
+    final bool isSkipOnboarding = SharedPrefService.getIsSkipOnboarding();
 
-    if(isLoggedIn){
-      userData.value = SharedPrefService.getUserModel();
-      isPremium.value = userData.value?.isPremiumUser??false;
-      Get.offAll(()=>DashboardScreen());
-    }else if(isSkipOnboarding){
-      Get.offAll(()=> LoginScreen());
-    }else{
-      Get.offAll(()=> OnboardingScreen());
+    if (!isLoggedIn) {
+      Get.offAll(() =>
+      isSkipOnboarding ? const LoginScreen() : const OnboardingScreen());
+      return;
     }
 
+    final localUser = await _drift.getLastLoggedInUser();
+
+    if (localUser == null) {
+      // corrupted session → force login
+      SharedPrefService.clear();
+      Get.offAll(() => const LoginScreen());
+      return;
+    }
+
+    // ✅ Set user instantly
+    userData.value = localUser;
+    isPremium.value = localUser.isPremiumUser;
+
+    // ✅ Navigate immediately (offline-safe)
+    Get.offAll(() => const DashboardScreen());
+
+    // 🔄 Background sync (does NOT block UI)
+    _backgroundSync(localUser);
   }
+
+  Future<void> _backgroundSync(UserModel localUser) async {
+    if (!await _sync.isOnline) return;
+
+    try {
+      // 1️⃣ Ensure Firebase Auth session (silent)
+      await _firebase.ensureSignedInFromCache();
+
+      // 2️⃣ Pull latest user profile
+      final remoteUser = await _firebase.fetchUser(localUser.id);
+      if (remoteUser != null) {
+        await _drift.saveUser(
+          localUser.copyWith(
+            name: remoteUser['name'],
+            isPremiumUser: remoteUser['isPremiumUser'],
+            updatedAt: DateTime.now(),
+            isSynced: true,
+          ),
+        );
+      }
+
+      // 3️⃣ Push local unsynced data
+      await _sync.syncPendingData(localUser.id);
+
+      // 4️⃣ Pull remote changes (children, growth, etc.)
+      // await _sync.pullRemoteUpdates(userId);
+    } catch (e) {
+      debugPrint('Background sync failed: $e');
+    }
+  }
+
 
   logoutUser() async {
     await FirebaseAuth.instance.signOut();
@@ -48,7 +109,7 @@ class AppController extends GetxController {
     isPremium.value = false;
     isDarkMode.value = false;
 
-    Get.offAll(()=> LoginScreen());
+    Get.offAll(()=> const LoginScreen());
 
 
   }
